@@ -24,16 +24,12 @@ let package = Package(
             ],
             path: "Sources/libzmq",
             exclude: [
-                    "tweetnacl.c",
-                    "tweetnacl.h" // whatever files implement tweetnacl
-                ],
+                "tweetnacl.c",
+                "tweetnacl.h"
+            ],
             publicHeadersPath: "include",
             cSettings: [
                 .headerSearchPath("include")
-            ],
-            cxxSettings: [
-                .headerSearchPath("include"),
-                .unsafeFlags(["-std=c++17"])
             ]
         )
     ]
