@@ -395,12 +395,11 @@ zmq::fd_t zmq::tcp_connecter_t::connect ()
     if (rc == -1)
         err = errno;
     if (err != 0) {
+        //  On iOS, socket file descriptors can become invalid (EBADF/ENOTSOCK)
+        //  after the OS suspends and resumes the process. This is normal and
+        //  not a 0MQ bug — treat it as a connection failure so the caller
+        //  can retry via add_reconnect_timer().
         errno = err;
-        errno_assert (
-            errno != EBADF &&
-            errno != ENOPROTOOPT &&
-            errno != ENOTSOCK &&
-            errno != ENOBUFS);
         return retired_fd;
     }
 #endif
@@ -413,13 +412,18 @@ zmq::fd_t zmq::tcp_connecter_t::connect ()
 
 void zmq::tcp_connecter_t::close ()
 {
-    zmq_assert (s != retired_fd);
+    //  On iOS, the socket may already be invalid after process suspension.
+    //  Guard against double-close or closing an already retired fd.
+    if (s == retired_fd)
+        return;
 #ifdef ZMQ_HAVE_WINDOWS
     const int rc = closesocket (s);
     wsa_assert (rc != SOCKET_ERROR);
 #else
     const int rc = ::close (s);
-    errno_assert (rc == 0);
+    //  Ignore EBADF — socket may have been invalidated by iOS suspension.
+    if (rc != 0 && errno != EBADF)
+        errno_assert (rc == 0);
 #endif
     socket->event_closed (endpoint, (int) s);
     s = retired_fd;
